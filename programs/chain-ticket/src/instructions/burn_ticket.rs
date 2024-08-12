@@ -1,5 +1,5 @@
 use {
-    crate::{constants::EVENT_SEED, state::Event},
+    crate::{constants::{EVENT_SEED, MINT_SEED}, state::Event},
     anchor_lang::prelude::*,
     anchor_spl::token::{
         burn, close_account, thaw_account, Burn, CloseAccount, Mint, ThawAccount, Token,
@@ -9,11 +9,13 @@ use {
 
 #[derive(Accounts)]
 pub struct BurnTicket<'info> {
+    event: Account<'info, Event>,
     #[account(
-        seeds = [EVENT_SEED, event.authority.as_ref()],
+        mut,
+        seeds = [MINT_SEED, event.key().as_ref()],
         bump,
     )]
-    event: Account<'info, Event>,
+    mint: Account<'info, Mint>,
     #[account(mut)]
     ticket_holder: Signer<'info>,
     #[account(
@@ -22,7 +24,6 @@ pub struct BurnTicket<'info> {
         associated_token::authority = ticket_holder,
     )]
     ticket_holder_ata: Account<'info, TokenAccount>,
-    mint: Account<'info, Mint>,
     token_program: Program<'info, Token>,
 }
 

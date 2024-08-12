@@ -1,6 +1,6 @@
 use {
     crate::{
-        constants::{DEPOSIT_AMOUNT, EVENT_SEED},
+        constants::{DEPOSIT_AMOUNT, EVENT_SEED, VAULT_SEED},
         errors::ChainTicketError,
         state::Event,
         utils::sol_to_lamports,
@@ -21,6 +21,17 @@ pub struct StartSale<'info> {
         bump
     )]
     event: Account<'info, Event>,
+
+    /// CHECK: Address is derived and is a native vault,
+    /// in order to facilitate transfers from the vault
+    /// it must have no data and thus no discriminator.
+    #[account(
+        mut,
+        seeds = [VAULT_SEED, event.key().as_ref()],
+        bump,
+        address = event.vault @ ChainTicketError::InvalidVault,
+    )]
+    vault: UncheckedAccount<'info>,
     system_program: Program<'info, System>,
 }
 
@@ -36,12 +47,12 @@ pub fn process_start(ctx: Context<StartSale>) -> Result<()> {
     anchor_lang::solana_program::program::invoke(
         &anchor_lang::solana_program::system_instruction::transfer(
             &ctx.accounts.authority.key(),
-            &ctx.accounts.event.key(),
+            &ctx.accounts.vault.key(),
             sol_to_lamports(DEPOSIT_AMOUNT as f64),
         ),
         &[
             ctx.accounts.authority.to_account_info(),
-            ctx.accounts.event.to_account_info(),
+            ctx.accounts.vault.to_account_info(),
             ctx.accounts.system_program.to_account_info(),
         ],
     )?;

@@ -1,17 +1,33 @@
 import { AnchorProvider, Program, Wallet } from "@coral-xyz/anchor";
+import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { MPL_TOKEN_METADATA_PROGRAM_ID } from "@metaplex-foundation/mpl-token-metadata";
-import { PublicKey, Connection, TransactionInstruction } from "@solana/web3.js";
+import {
+    PublicKey,
+    Connection,
+    TransactionInstruction,
+    VersionedTransaction,
+    TransactionMessage
+} from "@solana/web3.js";
 import { BN } from "bn.js";
-import { IDL, ChainTicket } from "../types/chain_ticket";
+import { ChainTicket } from "../types/chain_ticket";
+import * as IDL from "../types/chain_ticket.json";
+
+export const idl: ChainTicket = IDL as ChainTicket;
 
 const EVENT_SEED: string = "event";
 const MINT_SEED: string = "mint";
+const VAULT_SEED: string = "vault";
 const METADATA_SEED: string = "metadata";
+
+//const PLATFORM_OWNER: PublicKey = new PublicKey("EcmsHx8pZQqpHViyecmTNyzKpRrm3PGw86WWaK6dXmcs");
 
 export function getEventAddress(authority: PublicKey): [PublicKey, number] {
     return PublicKey.findProgramAddressSync(
-        [Buffer.from(EVENT_SEED), authority.toBuffer()],
-        new PublicKey(IDL.address)
+        [
+            Buffer.from(EVENT_SEED),
+            authority.toBuffer()
+        ],
+        new PublicKey(idl.address)
     );
 }
 
@@ -21,22 +37,70 @@ export function getMintAddress(eventAddress: PublicKey): [PublicKey, number] {
             Buffer.from(MINT_SEED),
             eventAddress.toBuffer()
         ],
-        new PublicKey(IDL.address)
+        new PublicKey(idl.address)
+    );
+}
+
+export function getVaultAddress(eventAddress: PublicKey): [PublicKey, number] {
+    return PublicKey.findProgramAddressSync(
+        [
+            Buffer.from(VAULT_SEED),
+            eventAddress.toBuffer(),
+        ],
+        new PublicKey(idl.address),
     );
 }
 
 export function getMetadataAddress(mintAddress: PublicKey): [PublicKey, number] {
+    const mplPubkey = new PublicKey(MPL_TOKEN_METADATA_PROGRAM_ID);
     return PublicKey.findProgramAddressSync(
         [
             Buffer.from(METADATA_SEED),
-            MPL_TOKEN_METADATA_PROGRAM_ID.toBuffer(),
+            mplPubkey.toBuffer(),
             mintAddress.toBuffer()
         ],
-        MPL_TOKEN_METADATA_PROGRAM_ID
+        mplPubkey,
     );
 }
 
-type InitEventFields = {
+export async function refundAll(connection: Connection, wallet: Wallet): Promise<[string[], string[]]> {
+    const chainTicketProgram = new ChainTicketProgram(connection, wallet);
+    const eventAddress = getEventAddress(wallet.publicKey)[0];
+    const mintAddress = getMintAddress(eventAddress)[0];
+    const filter = [
+        {
+            dataSize: 165, // Token account size
+        },
+        {
+            memcmp: {
+                offset: 32, // Offset for the mint address
+                bytes: mintAddress.toBase58(),
+            },
+        },
+    ];
+
+    const accounts = await connection.getProgramAccounts(TOKEN_PROGRAM_ID, {
+        filters: filter,
+    }).then(r => r.map(({ pubkey }) => pubkey));
+
+    let txids: string[] = [];
+    let failures: string[] = [];
+
+    await Promise.all(accounts.map(async (buyer) => {
+        try {
+            const ix = await chainTicketProgram.getRefundTicketIx(buyer);
+            const txid = await chainTicketProgram.sendTransaction([ix]);
+            txids.push(txid);
+        } catch (error) {
+            console.error("Error processing refund for buyer:", buyer.toBase58(), error);
+            failures.push(buyer.toBase58());
+        }
+    }));
+
+    return [txids, failures];
+}
+
+export type InitEventFields = {
     eventName: string,
     eventSymbol: string,
     imageUri: string,
@@ -47,25 +111,49 @@ type InitEventFields = {
     refundPeriod: number,
 }
 
-type AmendEventFields = {
+export type AmendEventFields = {
     eventDate: number,
     ticketPrice: number,
     numTickets: number,
 }
 
-export default class ChainTicketProgram {
-    private program: Program<ChainTicket>;
+export class ChainTicketProgram {
+    program: Program<ChainTicket>;
 
     constructor(connection: Connection, wallet: Wallet) {
         const provider = new AnchorProvider(
             connection,
             wallet,
             {
-                preflightCommitment: "recent",
+                preflightCommitment: "confirmed",
                 commitment: "confirmed",
             }
         );
-        this.program = new Program(IDL, provider);
+        this.program = new Program(idl, provider);
+    }
+
+    async sendTransaction(instructions: TransactionInstruction[]): Promise<string> {
+        const transaction = await this.prepareTransaction(instructions);
+        const txid = await this.program.provider.sendAndConfirm(transaction);
+
+        return txid;
+    }
+
+    async prepareTransaction(instructions: TransactionInstruction[]): Promise<VersionedTransaction> {
+        const recentBlockhash = await this.program
+            .provider
+            .connection
+            .getLatestBlockhash()
+            .then(r => r.blockhash);
+        console.log(recentBlockhash);
+
+        const messageV0 = new TransactionMessage({
+            payerKey: this.program.provider.publicKey,
+            recentBlockhash,
+            instructions,
+        }).compileToV0Message();
+
+        return new VersionedTransaction(messageV0);
     }
 
     getInitEventIx(
@@ -111,13 +199,13 @@ export default class ChainTicketProgram {
         ).instruction();
     }
 
-    getBuyTicketIx(): Promise<TransactionInstruction> {
+    getBuyTicketIx(event: PublicKey): Promise<TransactionInstruction> {
         return this.program.methods.buyTicket().accounts(
             {
+                event,
                 buyer: this.program.provider.publicKey,
             }
         ).instruction();
-
     }
 
     getRefundTicketIx(buyer: PublicKey): Promise<TransactionInstruction> {
@@ -129,9 +217,10 @@ export default class ChainTicketProgram {
         ).instruction();
     }
 
-    getBurnTicketIx(): Promise<TransactionInstruction> {
+    getBurnTicketIx(event: PublicKey): Promise<TransactionInstruction> {
         return this.program.methods.burnTicket().accounts(
             {
+                event,
                 ticketHolder: this.program.provider.publicKey,
             }
         ).instruction();
@@ -149,6 +238,7 @@ export default class ChainTicketProgram {
     getWithdrawFundsIx(): Promise<TransactionInstruction> {
         return this.program.methods.withdrawFunds().accounts(
             {
+                authority: this.program.provider.publicKey,
             }
         ).instruction();
     }
@@ -168,5 +258,4 @@ export default class ChainTicketProgram {
             }
         ).instruction();
     }
-
 }

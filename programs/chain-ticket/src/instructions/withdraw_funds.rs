@@ -1,97 +1,73 @@
 use {
     crate::{
-        constants::{DEPOSIT_AMOUNT, EVENT_SEED, EVENT_STATE_SIZE, FEE, PLATFORM_OWNER},
+        constants::{
+            DEPOSIT_AMOUNT, EVENT_SEED, EVENT_STATE_SIZE, FEE, PLATFORM_OWNER, VAULT_SEED,
+        },
         errors::ChainTicketError,
         state::Event,
         utils::sol_to_lamports,
     },
     anchor_lang::prelude::*,
-    std::str::FromStr,
 };
 
 #[derive(Accounts)]
 pub struct WithdrawFunds<'info> {
-    /// CHECK: Checked against constant
-    #[account(mut)]
-    pub platform_owner: UncheckedAccount<'info>,
-    #[account(mut)]
-    pub authority: Signer<'info>,
+    /// CHECK: Checked with constraint
     #[account(
         mut,
-        seeds = [EVENT_SEED, event.key().as_ref()],
+        address = PLATFORM_OWNER @ ChainTicketError::Unauthorised,
+    )]
+    pub platform_owner: UncheckedAccount<'info>,
+    #[account(
+        mut,
+        address = event.authority @ ChainTicketError::Unauthorised,
+    )]
+    pub authority: Signer<'info>,
+    #[account(
+        seeds = [EVENT_SEED, authority.key().as_ref()],
         bump,
     )]
     pub event: Account<'info, Event>,
-    pub system_program: Program<'info, System>,
+    /// CHECK: Address is derived and is a native vault,
+    /// in order to facilitate transfers from the vault
+    /// it must have no data and thus no discriminator.
+    #[account(
+        mut,
+        seeds = [VAULT_SEED, event.key().as_ref()],
+        bump,
+        address = event.vault @ ChainTicketError::InvalidVault,
+    )]
+    pub vault: UncheckedAccount<'info>,
 }
 
 pub fn process_withdraw(ctx: Context<WithdrawFunds>) -> Result<()> {
-    // Check platform owner address
-    require_keys_eq!(
-        ctx.accounts.platform_owner.key(),
-        Pubkey::from_str(PLATFORM_OWNER).map_err(|_| ChainTicketError::PubkeyParseError)?,
-        ChainTicketError::IncorrectPlatformOwner
+    let clock = Clock::get()?;
+
+    // Check refund period has elapsed
+    require_gte!(
+        clock.unix_timestamp,
+        (ctx.accounts.event.event_date + ctx.accounts.event.refund_period)
     );
 
-    // Check authority
-    require_keys_eq!(
-        ctx.accounts.authority.key(),
-        ctx.accounts.event.authority,
-        ChainTicketError::Unauthorised
-    );
-
-    let rent = Rent::get()?;
     let deposit_amount = sol_to_lamports(DEPOSIT_AMOUNT as f64);
-    let rent_lamports = rent.minimum_balance(EVENT_STATE_SIZE);
 
     let proceeds = ctx
         .accounts
-        .event
+        .vault
         .get_lamports()
         .checked_sub(deposit_amount)
-        .ok_or(ChainTicketError::Overflow)?
-        .checked_sub(rent_lamports)
         .ok_or(ChainTicketError::Overflow)?;
 
     let platform_fee = proceeds
         .checked_div(FEE * 100)
         .ok_or(ChainTicketError::Overflow)?;
 
+    // Deduct platform fee, proceeds and deposit amount
+    **ctx.accounts.vault.try_borrow_mut_lamports()? -= platform_fee + proceeds + deposit_amount;
     // Transfer platform fee
-    anchor_lang::solana_program::program::invoke_signed(
-        &anchor_lang::solana_program::system_instruction::transfer(
-            &ctx.accounts.event.key(),
-            &ctx.accounts.platform_owner.key(),
-            platform_fee,
-        ),
-        &[
-            ctx.accounts.event.to_account_info(),
-            ctx.accounts.platform_owner.to_account_info(),
-        ],
-        &[&[
-            EVENT_SEED,
-            ctx.accounts.event.authority.as_ref(),
-            &[ctx.accounts.event.bump],
-        ]],
-    )?;
-
-    // Transfer proceeds
-    anchor_lang::solana_program::program::invoke_signed(
-        &anchor_lang::solana_program::system_instruction::transfer(
-            &ctx.accounts.event.key(),
-            &ctx.accounts.authority.key(),
-            proceeds + deposit_amount,
-        ),
-        &[
-            ctx.accounts.event.to_account_info(),
-            ctx.accounts.authority.to_account_info(),
-        ],
-        &[&[
-            EVENT_SEED,
-            ctx.accounts.event.authority.as_ref(),
-            &[ctx.accounts.event.bump],
-        ]],
-    )?;
+    **ctx.accounts.platform_owner.try_borrow_mut_lamports()? += platform_fee;
+    // Transfer proceeds + deposit amount
+    **ctx.accounts.authority.try_borrow_mut_lamports()? += proceeds + deposit_amount;
 
     Ok(())
 }

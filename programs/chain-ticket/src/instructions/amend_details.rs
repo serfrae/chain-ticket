@@ -9,11 +9,8 @@ pub struct AmendEvent<'info> {
     authority: Signer<'info>,
     #[account(
         mut,
-        seeds = [
-            EVENT_SEED,
-            authority.key().as_ref(),
-        ],
-            bump,
+        seeds = [EVENT_SEED, authority.key().as_ref()],
+        bump,
     )]
     event: Account<'info, Event>,
 }

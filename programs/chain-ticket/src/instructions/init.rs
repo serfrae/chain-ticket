@@ -6,7 +6,12 @@ use {
         },
         token::{Token, Mint},
     },
-    crate::{constants::{EVENT_SEED, MINT_SEED, METADATA_SEED, EVENT_STATE_SIZE}, state::Event},
+    crate::{
+        constants::{
+            EVENT_SEED, VAULT_SEED, MINT_SEED, METADATA_SEED, EVENT_STATE_SIZE
+        },
+        state::Event
+    },
 };
 
 #[derive(Accounts)]
@@ -23,6 +28,17 @@ pub struct InitEvent<'info> {
     )]
 	pub event: Account<'info, Event>,
 
+    /// CHECK: Address is derived and is a native vault,
+    /// in order to facilitate transfers from the vault
+    /// it must have no data and thus no discriminator.
+    #[account(
+        init,
+        payer = authority,
+        seeds = [VAULT_SEED, event.key().as_ref()],
+        bump,
+        space = 0,
+    )]
+    pub vault: UncheckedAccount<'info>,
 
     #[account(
         init, 
@@ -69,12 +85,14 @@ pub struct InitEventFields {
 pub fn process_init(ctx: Context<InitEvent>, data: InitEventFields) -> Result<()> {
     ctx.accounts.event.bump = ctx.bumps.event;
     ctx.accounts.event.authority = ctx.accounts.authority.key();
-    ctx.accounts.event.allow_purchase = false;
+    ctx.accounts.event.vault = ctx.accounts.vault.key();
     ctx.accounts.event.mint = ctx.accounts.mint.key();
+    ctx.accounts.event.allow_purchase = false;
     ctx.accounts.event.event_date = data.event_date;
     ctx.accounts.event.ticket_price = data.ticket_price;
     ctx.accounts.event.refund_period = data.refund_period;
     ctx.accounts.event.num_tickets = data.num_tickets;
+    msg!("{}", data.ticket_price);
 
     // Create token metadata (used for wallets to read name, symbol, and token image)
     create_metadata_accounts_v3(

@@ -8,7 +8,7 @@ mod utils;
 
 use instructions::*;
 
-declare_id!("AGZeqX1TNnjrH4yFeRHEf2iHnz3ZLX5W94rC1iJuBY8b");
+declare_id!("4uXFs66eEYQ8u51coqaypjF4wtRL4LQTML2kA5zMXUy4");
 
 #[program]
 pub mod chain_ticket {

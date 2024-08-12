@@ -7,54 +7,65 @@ use {
         }, 
         associated_token::AssociatedToken
     },
-    crate::{errors::ChainTicketError, state::Event, constants::{EVENT_SEED, MINT_SEED}},
+    crate::{errors::ChainTicketError, state::Event, constants::{EVENT_SEED, MINT_SEED, VAULT_SEED}},
 };
 
 #[derive(Accounts)]
 pub struct BuyTicket<'info> {
+	event: Account<'info, Event>,
+    /// CHECK: Address is derived and is a native vault,
+    /// in order to facilitate transfers from the vault
+    /// it must have no data and thus no discriminator.
     #[account(
-        seeds = [EVENT_SEED, event.authority.as_ref()],
+        mut,
+        seeds = [VAULT_SEED, event.key().as_ref()],
         bump,
+        address = event.vault @ ChainTicketError::InvalidVault,
     )]
-	pub event: Account<'info, Event>,
+    vault: UncheckedAccount<'info>,
     #[account(
         mut,
         seeds = [MINT_SEED, event.key().as_ref()],
-        bump
+        bump,
+        address = event.mint @ ChainTicketError::InvalidMint,
     )]
-    pub mint: Account<'info, Mint>,
+    mint: Account<'info, Mint>,
     #[account(mut)]
 	pub buyer: Signer<'info>,
     #[account(
-        init, 
+        init_if_needed, 
         payer = buyer, 
         associated_token::mint = mint, 
         associated_token::authority = buyer,
     )]
-    pub buyer_ata: Account<'info, TokenAccount>,
-	pub system_program: Program<'info, System>,
-	pub token_program: Program<'info, Token>,
-	pub associated_token_program: Program<'info, AssociatedToken>,
+    buyer_ata: Account<'info, TokenAccount>,
+	system_program: Program<'info, System>,
+	token_program: Program<'info, Token>,
+	associated_token_program: Program<'info, AssociatedToken>,
 }
 
 /// Purchases a ticket by transferring SOL to the event account, and minting a ticket token
 /// to the buyer. The ticket's associated token account is then frozen and the event is set
 /// as delegate. Necessary for refunds and clean-ups.
 pub fn process_buy(ctx: Context<BuyTicket>) -> Result<()> {
-    if ctx.accounts.event.num_tickets as u64 <= ctx.accounts.mint.supply {
-        return Err(ChainTicketError::MaxTicketsSold.into());
-    }
+    require_gte!(
+        ctx.accounts.event.num_tickets as u64, 
+        ctx.accounts.mint.supply, 
+        ChainTicketError::MaxTicketsExceeded
+    );
+
+    require_gte!(1, ctx.accounts.buyer_ata.amount, ChainTicketError::AlreadyPurchased);
 
     // Transfer sol to the Event account
     anchor_lang::solana_program::program::invoke(
         &anchor_lang::solana_program::system_instruction::transfer(
             &ctx.accounts.buyer.key(),
-            &ctx.accounts.event.key(),
+            &ctx.accounts.vault.key(),
             ctx.accounts.event.ticket_price,
         ),
         &[
             ctx.accounts.buyer.to_account_info(),
-            ctx.accounts.event.to_account_info(),
+            ctx.accounts.vault.to_account_info(),
             ctx.accounts.system_program.to_account_info(),
         ],
     )?;

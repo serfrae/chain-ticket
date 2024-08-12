@@ -1,6 +1,6 @@
 use {
     crate::{
-        constants::{EVENT_SEED, EVENT_STATE_SIZE, MINT_SEED},
+        constants::{EVENT_SEED, EVENT_STATE_SIZE, MINT_SEED, VAULT_SEED},
         errors::ChainTicketError,
         state::Event,
     },
@@ -13,7 +13,10 @@ use {
 
 #[derive(Accounts)]
 pub struct EndEvent<'info> {
-    #[account(mut)]
+    #[account(
+        mut,
+        address = event.authority @ ChainTicketError::Unauthorised,
+    )]
     authority: Signer<'info>,
     #[account(
         mut, 
@@ -22,11 +25,22 @@ pub struct EndEvent<'info> {
         bump,
     )]
     event: Account<'info, Event>,
+    /// CHECK: Address is derived and is a native vault,
+    /// in order to facilitate transfers from the vault
+    /// it must have no data and thus no discriminator.
+    #[account(
+        mut,
+        seeds = [VAULT_SEED, event.key().as_ref()],
+        bump,
+        address = event.authority @ ChainTicketError::InvalidVault,
+    )]
+    vault: UncheckedAccount<'info>,
     #[account(
         mut, 
         close = authority,
         seeds = [MINT_SEED, event.key().as_ref()],
         bump,
+        address = event.mint @ ChainTicketError::InvalidMint,
     )]
     mint: Account<'info, Mint>,
     token_program: Program<'info, Token>,
@@ -36,13 +50,6 @@ pub struct EndEvent<'info> {
 /// Ends the event by closing the mint and the event accounts relcaiming rent in the process.
 /// Can only be called if the associated mint's supply is 0. I.e. requires burning all tokens.
 pub fn process_end(ctx: Context<EndEvent>) -> Result<()> {
-    // Check authority is the caller
-    require_keys_eq!(
-        ctx.accounts.authority.key(),
-        ctx.accounts.event.authority,
-        ChainTicketError::Unauthorised
-    );
-
     let clock = Clock::get()?;
     let rent = Rent::get()?;
 
@@ -82,6 +89,35 @@ pub fn process_end(ctx: Context<EndEvent>) -> Result<()> {
         &transfer_ix,
         &[
             ctx.accounts.mint.to_account_info(),
+            ctx.accounts.authority.to_account_info(),
+        ],
+        &[&[
+            EVENT_SEED,
+            ctx.accounts.authority.key().as_ref(),
+            &[ctx.accounts.event.bump],
+        ]],
+    )?;
+
+    // Close vault 
+    ctx.accounts
+        .vault
+        .to_account_info()
+        .assign(&ctx.accounts.system_program.key());
+
+    // Zero data
+    ctx.accounts.vault.to_account_info().realloc(0, false)?;
+
+    let transfer_ix = anchor_lang::solana_program::system_instruction::transfer(
+        &ctx.accounts.vault.key(),
+        &ctx.accounts.authority.key(),
+        mint_lamports,
+    );
+
+    // Transfer lamports to authority
+    anchor_lang::solana_program::program::invoke_signed(
+        &transfer_ix,
+        &[
+            ctx.accounts.vault.to_account_info(),
             ctx.accounts.authority.to_account_info(),
         ],
         &[&[

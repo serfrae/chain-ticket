@@ -1,16 +1,181 @@
 import * as anchor from "@coral-xyz/anchor";
-import { Program } from "@coral-xyz/anchor";
-import { ChainTicket } from "../target/types/chain_ticket";
+import { assert } from "chai";
+import {
+    InitEventFields,
+    AmendEventFields,
+    refundAll,
+    ChainTicketProgram,
+    getEventAddress,
+    getMintAddress,
+    getVaultAddress,
+    idl,
+} from "../app/lib/program";
+import { TOKEN_PROGRAM_ID, MintLayout } from "@solana/spl-token";
+import { PublicKey } from "@solana/web3.js";
+
 
 describe("chain-ticket", () => {
-  // Configure the client to use the local cluster.
-  anchor.setProvider(anchor.AnchorProvider.env());
+    let chainTicket: ChainTicketProgram;
 
-  const program = anchor.workspace.ChainTicket as Program<ChainTicket>;
+    before(async () => {
+        const provider = anchor.AnchorProvider.env();
+        anchor.setProvider(provider);
+        chainTicket = new ChainTicketProgram(
+            provider.connection,
+            provider.wallet as anchor.Wallet
+        );
+    });
 
-  it("Is initialized!", async () => {
-    // Add your test here.
-    const tx = await program.methods.initialize().rpc();
-    console.log("Your transaction signature", tx);
-  });
+    it("init", async () => {
+        const fields: InitEventFields = {
+            eventName: "test",
+            eventSymbol: "TST",
+            imageUri: "https://test.com/",
+            metadataUri: "https://testmetadata.com/",
+            eventDate: 123123123,
+            ticketPrice: 129182731298,
+            numTickets: 100,
+            refundPeriod: 72000,
+        };
+
+        const ix = await chainTicket.getInitEventIx(fields);
+        const txid = await chainTicket.sendTransaction([ix]);
+        console.log("TXID:", txid);
+
+        const eventAddress = getEventAddress(chainTicket.program.provider.publicKey)[0];
+        const mintAddress = getMintAddress(eventAddress)[0];
+        const vaultAddress = getVaultAddress(eventAddress)[0];
+
+        const accountInfo = await chainTicket.program.account.event
+            .fetch(eventAddress);
+
+        const mintAccount = await chainTicket.program.provider.connection
+            .getAccountInfo(mintAddress);
+        const mintData = MintLayout.decode(mintAccount.data);
+
+        const vaultAccount = await chainTicket.program.provider.connection
+            .getAccountInfo(vaultAddress);
+
+        assert.ok(accountInfo.authority.equals(chainTicket.program.provider.publicKey));
+        console.log("Event authority: OK");
+
+        assert.ok(accountInfo.mint.equals(mintAddress));
+        console.log("Mint address: OK");
+
+        assert.strictEqual(accountInfo.eventDate.toNumber(), fields.eventDate);
+        assert.strictEqual(accountInfo.numTickets, fields.numTickets);
+        assert.strictEqual(accountInfo.ticketPrice.toNumber(), fields.ticketPrice);
+        console.log("Event fields: OK");
+
+        assert.ok(mintAccount !== null, "Mint account not initialised");
+        console.log("Mint initialisation: OK");
+
+        assert.ok(mintAccount.owner.equals(TOKEN_PROGRAM_ID));
+        console.log("Mint program owner: OK");
+
+        assert.ok(mintData.supply.toString() === "0", "Supply should be zero");
+        console.log("Mint supply: OK");
+
+        assert.ok(mintData.mintAuthority.equals(eventAddress));
+        console.log("Mint authority: OK");
+
+        assert.ok(mintData.freezeAuthority.equals(eventAddress));
+        console.log("Freeze authority: OK");
+
+        assert.ok(vaultAccount !== null, "Vault is not initialised");
+        console.log("Vault initialisation: OK");
+
+        assert.ok(vaultAccount.owner.equals(new PublicKey(idl.address)));
+        console.log("Vault owner: OK");
+
+    });
+
+    it("amend", async () => {
+        const fields: AmendEventFields = {
+            eventDate: 9999999,
+            ticketPrice: 50000,
+            numTickets: 50,
+        };
+
+        const ix = await chainTicket.getAmendEventIx(fields);
+        const txid = await chainTicket.sendTransaction([ix]);
+        console.log("TXID:", txid);
+
+        const eventAddress = getEventAddress(chainTicket.program.provider.publicKey)[0];
+
+        const accountInfo = await chainTicket.program.account.event
+            .fetch(eventAddress);
+
+        assert.strictEqual(accountInfo.eventDate.toNumber(), fields.eventDate);
+        assert.strictEqual(accountInfo.ticketPrice.toNumber(), fields.ticketPrice);
+        assert.strictEqual(accountInfo.numTickets, fields.numTickets);
+        console.log("Event fields: OK");
+    });
+
+    it("start", async () => {
+        const ix = await chainTicket.getStartSaleIx();
+        const txid = await chainTicket.sendTransaction([ix]);
+        console.log("TXID:", txid);
+
+        const eventAddress = getEventAddress(chainTicket.program.provider.publicKey)[0];
+
+        const accountInfo = await chainTicket.program.account.event
+            .fetch(eventAddress);
+        assert.strictEqual(accountInfo.allowPurchase, true);
+    });
+
+    it("buy", async () => {
+        const eventAddress = getEventAddress(chainTicket.program.provider.publicKey)[0];
+        const ix = await chainTicket.getBuyTicketIx(eventAddress);
+        const txid = await chainTicket.sendTransaction([ix]);
+
+        console.log("TXID:", txid);
+    });
+
+    it("refund", async () => {
+        const ix = await chainTicket.getRefundTicketIx(chainTicket.program.provider.publicKey);
+        const txid = await chainTicket.sendTransaction([ix]);
+        console.log("TXID:", txid);
+    });
+
+    it("burn", async () => {
+        const buy = await chainTicket.getBuyTicketIx(
+            getEventAddress(chainTicket.program.provider.publicKey)[0]
+        );
+        await chainTicket.sendTransaction([buy]);
+        const ix = await chainTicket.getBurnTicketIx(
+            getEventAddress(chainTicket.program.provider.publicKey)[0]
+        );
+        const txid = await chainTicket.sendTransaction([ix]);
+        console.log("TXID:", txid);
+    });
+
+    it("delegate burn", async () => {
+        const buy = await chainTicket.getBuyTicketIx(
+            getEventAddress(chainTicket.program.provider.publicKey)[0]
+        );
+        await chainTicket.sendTransaction([buy]);
+
+        const ix = await chainTicket.getDelegateBurnIx(chainTicket.program.provider.publicKey);
+        const txid = await chainTicket.sendTransaction([ix]);
+        console.log("TXID:", txid);
+    });
+
+    it("withdraw", async () => {
+        const ix = await chainTicket.getWithdrawFundsIx();
+        const txid = await chainTicket.sendTransaction([ix]);
+        console.log("TXID:", txid);
+    });
+
+    it("cancel", async () => {
+        const ix = await chainTicket.getCancelEventIx();
+        const txid = await chainTicket.sendTransaction([ix]);
+        console.log("TXID:", txid);
+    });
+
+    it("end", async () => {
+        const ix = await chainTicket.getEndEventIx();
+        const txid = await chainTicket.sendTransaction([ix]);
+        console.log("TXID:", txid);
+    });
 });

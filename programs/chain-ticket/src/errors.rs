@@ -6,7 +6,7 @@ pub enum ChainTicketError {
     FeeCalculationError,
 
     #[msg("Max tickets sold")]
-    MaxTicketsSold,
+    MaxTicketsExceeded,
 
     #[msg("Unauthorised access")]
     Unauthorised,
@@ -25,4 +25,13 @@ pub enum ChainTicketError {
 
     #[msg("Amount overflow")]
     Overflow,
+
+    #[msg("Invalid mint address")]
+    InvalidMint,
+
+    #[msg("Invalid vault address")]
+    InvalidVault,
+
+    #[msg("User has already purchased a ticket")]
+    AlreadyPurchased,
 }

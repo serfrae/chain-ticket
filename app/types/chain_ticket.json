@@ -1,5 +1,5 @@
 {
-  "address": "AGZeqX1TNnjrH4yFeRHEf2iHnz3ZLX5W94rC1iJuBY8b",
+  "address": "4uXFs66eEYQ8u51coqaypjF4wtRL4LQTML2kA5zMXUy4",
   "metadata": {
     "name": "chain_ticket",
     "version": "0.1.0",
@@ -74,6 +74,27 @@
       "accounts": [
         {
           "name": "event"
+        },
+        {
+          "name": "mint",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  105,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "event"
+              }
+            ]
+          }
         },
         {
           "name": "ticket_holder",
@@ -171,9 +192,6 @@
           }
         },
         {
-          "name": "mint"
-        },
-        {
           "name": "token_program",
           "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         }
@@ -197,8 +215,51 @@
           "name": "event"
         },
         {
+          "name": "vault",
+          "docs": [
+            "in order to facilitate transfers from the vault",
+            "it must have no data and thus no discriminator."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "event"
+              }
+            ]
+          }
+        },
+        {
           "name": "mint",
-          "writable": true
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  105,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "event"
+              }
+            ]
+          }
         },
         {
           "name": "buyer",
@@ -325,7 +386,8 @@
       "accounts": [
         {
           "name": "platform_owner",
-          "writable": true
+          "writable": true,
+          "address": "EcmsHx8pZQqpHViyecmTNyzKpRrm3PGw86WWaK6dXmcs"
         },
         {
           "name": "authority",
@@ -334,10 +396,71 @@
         },
         {
           "name": "event",
-          "writable": true
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  118,
+                  101,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "authority"
+              }
+            ]
+          }
         },
         {
-          "name": "mint"
+          "name": "mint",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  105,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "event"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault",
+          "docs": [
+            "in order to facilitate transfers from the vault",
+            "it must have no data and thus no discriminator."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "event"
+              }
+            ]
+          }
         },
         {
           "name": "system_program",
@@ -387,7 +510,24 @@
         },
         {
           "name": "mint",
-          "writable": true
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  105,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "event"
+              }
+            ]
+          }
         },
         {
           "name": "target_wallet"
@@ -509,11 +649,46 @@
         },
         {
           "name": "event",
-          "writable": true
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  118,
+                  101,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "authority"
+              }
+            ]
+          }
         },
         {
           "name": "mint",
-          "writable": true
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  105,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "event"
+              }
+            ]
+          }
         },
         {
           "name": "token_program",
@@ -562,6 +737,32 @@
               {
                 "kind": "account",
                 "path": "authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault",
+          "docs": [
+            "in order to facilitate transfers from the vault",
+            "it must have no data and thus no discriminator."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "event"
               }
             ]
           }
@@ -668,10 +869,71 @@
         },
         {
           "name": "event",
-          "writable": true
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  118,
+                  101,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "authority"
+              }
+            ]
+          }
         },
         {
-          "name": "mint"
+          "name": "vault",
+          "docs": [
+            "in order to facilitate transfers from the vault",
+            "it must have no data and thus no discriminator."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "event"
+              }
+            ]
+          }
+        },
+        {
+          "name": "mint",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  105,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "event"
+              }
+            ]
+          }
         },
         {
           "name": "buyer",
@@ -770,10 +1032,6 @@
         {
           "name": "token_program",
           "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
-        },
-        {
-          "name": "system_program",
-          "address": "11111111111111111111111111111111"
         }
       ],
       "args": []
@@ -819,6 +1077,32 @@
           }
         },
         {
+          "name": "vault",
+          "docs": [
+            "in order to facilitate transfers from the vault",
+            "it must have no data and thus no discriminator."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "event"
+              }
+            ]
+          }
+        },
+        {
           "name": "system_program",
           "address": "11111111111111111111111111111111"
         }
@@ -840,7 +1124,8 @@
       "accounts": [
         {
           "name": "platform_owner",
-          "writable": true
+          "writable": true,
+          "address": "EcmsHx8pZQqpHViyecmTNyzKpRrm3PGw86WWaK6dXmcs"
         },
         {
           "name": "authority",
@@ -849,7 +1134,50 @@
         },
         {
           "name": "event",
-          "writable": true
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  118,
+                  101,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault",
+          "docs": [
+            "in order to facilitate transfers from the vault",
+            "it must have no data and thus no discriminator."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "event"
+              }
+            ]
+          }
         },
         {
           "name": "system_program",
@@ -882,7 +1210,7 @@
     },
     {
       "code": 6001,
-      "name": "MaxTicketsSold",
+      "name": "MaxTicketsExceeded",
       "msg": "Max tickets sold"
     },
     {
@@ -914,6 +1242,21 @@
       "code": 6007,
       "name": "Overflow",
       "msg": "Amount overflow"
+    },
+    {
+      "code": 6008,
+      "name": "InvalidMint",
+      "msg": "Invalid mint address"
+    },
+    {
+      "code": 6009,
+      "name": "InvalidVault",
+      "msg": "Invalid vault address"
+    },
+    {
+      "code": 6010,
+      "name": "AlreadyPurchased",
+      "msg": "User has already purchased a ticket"
     }
   ],
   "types": [
@@ -957,12 +1300,16 @@
             "type": "pubkey"
           },
           {
-            "name": "allow_purchase",
-            "type": "bool"
+            "name": "vault",
+            "type": "pubkey"
           },
           {
             "name": "mint",
             "type": "pubkey"
+          },
+          {
+            "name": "allow_purchase",
+            "type": "bool"
           },
           {
             "name": "event_date",

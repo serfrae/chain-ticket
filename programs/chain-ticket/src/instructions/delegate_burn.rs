@@ -5,12 +5,15 @@ use {
         state::Event,
     },
     anchor_lang::prelude::*,
-    anchor_spl::token::{burn, Burn, Mint, Token, TokenAccount},
+    anchor_spl::token::{burn, thaw_account, Burn, Mint, ThawAccount, Token, TokenAccount},
 };
 
 #[derive(Accounts)]
 pub struct DelegateBurn<'info> {
-    #[account(mut)]
+    #[account(
+        mut,
+        address = event.authority @ ChainTicketError::Unauthorised,
+    )]
     pub authority: Signer<'info>,
     #[account(
         seeds = [
@@ -24,6 +27,7 @@ pub struct DelegateBurn<'info> {
         mut,
         seeds = [MINT_SEED, event.key().as_ref()],
         bump,
+        address = event.mint @ ChainTicketError::InvalidMint,
     )]
     pub mint: Account<'info, Mint>,
 
@@ -47,6 +51,20 @@ pub fn process_delegate_burn(ctx: Context<DelegateBurn>) -> Result<()> {
         ctx.accounts.authority.key(),
         ChainTicketError::Unauthorised
     );
+    // Thaw token account
+    thaw_account(CpiContext::new_with_signer(
+        ctx.accounts.token_program.to_account_info(),
+        ThawAccount {
+            account: ctx.accounts.target_ata.to_account_info(),
+            mint: ctx.accounts.mint.to_account_info(),
+            authority: ctx.accounts.event.to_account_info(),
+        },
+        &[&[
+            EVENT_SEED,
+            ctx.accounts.authority.key().as_ref(),
+            &[ctx.accounts.event.bump],
+        ]],
+    ))?;
 
     // Burn ticket token
     burn(
