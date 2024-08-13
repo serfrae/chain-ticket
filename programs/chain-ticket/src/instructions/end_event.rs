@@ -53,7 +53,6 @@ pub fn process_end(ctx: Context<EndEvent>) -> Result<()> {
     let rent = Rent::get()?;
 
     let event_lamports = ctx.accounts.event.get_lamports();
-    let mint_lamports = ctx.accounts.mint.get_lamports();
 
     // Check the event has ended
     require_gte!(
@@ -80,7 +79,7 @@ pub fn process_end(ctx: Context<EndEvent>) -> Result<()> {
     let transfer_ix = anchor_lang::solana_program::system_instruction::transfer(
         &ctx.accounts.vault.key(),
         &ctx.accounts.authority.key(),
-        mint_lamports,
+        ctx.accounts.vault.get_lamports(),
     );
 
     // Transfer lamports to authority
@@ -96,33 +95,6 @@ pub fn process_end(ctx: Context<EndEvent>) -> Result<()> {
             &[ctx.bumps.vault],
         ]],
     )?;
-
-    // Close event
-    //ctx.accounts
-    //    .event
-    //    .to_account_info()
-    //    .assign(&ctx.accounts.system_program.key());
-
-    //ctx.accounts.event.to_account_info().realloc(0, false)?;
-
-    //let transfer_ix = anchor_lang::solana_program::system_instruction::transfer(
-    //    &ctx.accounts.event.key(),
-    //    &ctx.accounts.authority.key(),
-    //    event_lamports,
-    //);
-
-    //anchor_lang::solana_program::program::invoke_signed(
-    //    &transfer_ix,
-    //    &[
-    //        ctx.accounts.event.to_account_info(),
-    //        ctx.accounts.authority.to_account_info(),
-    //    ],
-    //    &[&[
-    //        EVENT_SEED,
-    //        ctx.accounts.authority.key().as_ref(),
-    //        &[ctx.accounts.event.bump],
-    //    ]],
-    //)?;
 
     Ok(())
 }

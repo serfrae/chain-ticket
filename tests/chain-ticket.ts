@@ -9,7 +9,7 @@ import {
     getVaultAddress,
     idl,
 } from "../app/lib/program";
-import { TOKEN_PROGRAM_ID, MintLayout } from "@solana/spl-token";
+import { TOKEN_PROGRAM_ID, MintLayout, AccountLayout, getAssociatedTokenAddressSync } from "@solana/spl-token";
 import { PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
 
 
@@ -38,8 +38,7 @@ describe("chain-ticket", () => {
         };
 
         const ix = await chainTicket.getInitEventIx(fields);
-        const txid = await chainTicket.sendTransaction([ix]);
-        console.log("TXID:", txid);
+        await chainTicket.sendTransaction([ix]);
 
         const eventAddress = getEventAddress(chainTicket.program.provider.publicKey)[0];
         const mintAddress = getMintAddress(eventAddress)[0];
@@ -97,8 +96,7 @@ describe("chain-ticket", () => {
         };
 
         const ix = await chainTicket.getAmendEventIx(fields);
-        const txid = await chainTicket.sendTransaction([ix]);
-        console.log("TXID:", txid);
+        await chainTicket.sendTransaction([ix]);
 
         const eventAddress = getEventAddress(chainTicket.program.provider.publicKey)[0];
 
@@ -113,8 +111,7 @@ describe("chain-ticket", () => {
 
     it("start", async () => {
         const ix = await chainTicket.getStartSaleIx();
-        const txid = await chainTicket.sendTransaction([ix]);
-        console.log("TXID:", txid);
+        await chainTicket.sendTransaction([ix]);
 
         const eventAddress = getEventAddress(chainTicket.program.provider.publicKey)[0];
 
@@ -126,15 +123,40 @@ describe("chain-ticket", () => {
     it("buy", async () => {
         const eventAddress = getEventAddress(chainTicket.program.provider.publicKey)[0];
         const ix = await chainTicket.getBuyTicketIx(eventAddress);
-        const txid = await chainTicket.sendTransaction([ix]);
+        await chainTicket.sendTransaction([ix]);
 
-        console.log("TXID:", txid);
+        const mintAddress = getMintAddress(eventAddress)[0];
+        const ata = getAssociatedTokenAddressSync(mintAddress, chainTicket.program.provider.publicKey);
+
+        const ataInfo = await chainTicket.program.provider.connection.getAccountInfo(ata);
+        const mintInfo = await chainTicket.program.provider.connection.getAccountInfo(mintAddress);
+
+        const ataData = AccountLayout.decode(ataInfo.data);
+        const mintData = MintLayout.decode(mintInfo.data);
+        assert.strictEqual(ataData.amount.toString(), "1");
+        console.log("ATA amount: OK");
+        assert.strictEqual(mintData.supply.toString(), "1");
+        console.log("Mint supply: OK");
+
     });
 
     it("refund", async () => {
         const ix = await chainTicket.getRefundTicketIx(chainTicket.program.provider.publicKey);
-        const txid = await chainTicket.sendTransaction([ix]);
-        console.log("TXID:", txid);
+        await chainTicket.sendTransaction([ix]);
+
+        const eventAddress = getEventAddress(chainTicket.program.provider.publicKey)[0];
+        const mintAddress = getMintAddress(eventAddress)[0];
+        const ata = getAssociatedTokenAddressSync(mintAddress, chainTicket.program.provider.publicKey);
+
+        const ataInfo = await chainTicket.program.provider.connection.getAccountInfo(ata);
+        const mintInfo = await chainTicket.program.provider.connection.getAccountInfo(mintAddress);
+
+        const ataData = AccountLayout.decode(ataInfo.data);
+        const mintData = MintLayout.decode(mintInfo.data);
+
+        assert.strictEqual(ataData.amount.toString(), "0");
+        assert.strictEqual(mintData.supply.toString(), "0");
+        console.log("ATA and Mint Supply: OK");
     });
 
     it("burn", async () => {
@@ -145,8 +167,8 @@ describe("chain-ticket", () => {
         const ix = await chainTicket.getBurnTicketIx(
             getEventAddress(chainTicket.program.provider.publicKey)[0]
         );
-        const txid = await chainTicket.sendTransaction([ix]);
-        console.log("TXID:", txid);
+        await chainTicket.sendTransaction([ix]);
+
     });
 
     it("delegate burn", async () => {
@@ -156,8 +178,21 @@ describe("chain-ticket", () => {
         await chainTicket.sendTransaction([buy]);
 
         const ix = await chainTicket.getDelegateBurnIx(chainTicket.program.provider.publicKey);
-        const txid = await chainTicket.sendTransaction([ix]);
-        console.log("TXID:", txid);
+        await chainTicket.sendTransaction([ix]);
+
+        const eventAddress = getEventAddress(chainTicket.program.provider.publicKey)[0];
+        const mintAddress =  getMintAddress(eventAddress)[0];
+        const ata = getAssociatedTokenAddressSync(mintAddress, chainTicket.program.provider.publicKey);
+
+        const ataInfo = await chainTicket.program.provider.connection.getAccountInfo(ata);
+        const mintInfo = await chainTicket.program.provider.connection.getAccountInfo(mintAddress);
+
+        const ataData = AccountLayout.decode(ataInfo.data);
+        const mintData = MintLayout.decode(mintInfo.data);
+
+        assert.strictEqual(ataData.amount.toString(), "0");
+        assert.strictEqual(mintData.supply.toString(), "0");
+
     });
 
     //it("withdraw", async () => {
@@ -174,7 +209,6 @@ describe("chain-ticket", () => {
 
     it("end", async () => {
         const ix = await chainTicket.getEndEventIx();
-        const txid = await chainTicket.sendTransaction([ix]);
-        console.log("TXID:", txid);
+        await chainTicket.sendTransaction([ix]);
     });
 });

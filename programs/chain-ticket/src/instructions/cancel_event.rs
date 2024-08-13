@@ -55,33 +55,34 @@ pub fn process_cancel(ctx: Context<CancelEvent>) -> Result<()> {
     **ctx.accounts.vault.try_borrow_mut_lamports()? -= deposit_amount;
     **ctx.accounts.platform_owner.try_borrow_mut_lamports()? += deposit_amount; 
 
-    // Close event
-    //let event_lamports = ctx.accounts.event.get_lamports();
-    //ctx.accounts
-    //    .event
-    //    .to_account_info()
-    //    .assign(&ctx.accounts.system_program.key());
+    // Close vault 
+    ctx.accounts
+        .vault
+        .to_account_info()
+        .assign(&ctx.accounts.system_program.key());
 
-    //ctx.accounts.event.to_account_info().realloc(0, false)?;
+    // Zero data
+    ctx.accounts.vault.to_account_info().realloc(0, false)?;
 
-    //let transfer_ix = anchor_lang::solana_program::system_instruction::transfer(
-    //    &ctx.accounts.event.key(),
-    //    &ctx.accounts.authority.key(),
-    //    event_lamports,
-    //);
+    let transfer_ix = anchor_lang::solana_program::system_instruction::transfer(
+        &ctx.accounts.vault.key(),
+        &ctx.accounts.authority.key(),
+        ctx.accounts.vault.get_lamports(),
+    );
 
-    //anchor_lang::solana_program::program::invoke_signed(
-    //    &transfer_ix,
-    //    &[
-    //        ctx.accounts.event.to_account_info(),
-    //        ctx.accounts.authority.to_account_info(),
-    //    ],
-    //    &[&[
-    //        EVENT_SEED,
-    //        ctx.accounts.authority.key().as_ref(),
-    //        &[ctx.accounts.event.bump],
-    //    ]],
-    //)?;
-    // Close event
+    // Transfer lamports to authority
+    anchor_lang::solana_program::program::invoke_signed(
+        &transfer_ix,
+        &[
+            ctx.accounts.vault.to_account_info(),
+            ctx.accounts.authority.to_account_info(),
+        ],
+        &[&[
+            VAULT_SEED,
+            ctx.accounts.event.key().as_ref(),
+            &[ctx.bumps.vault],
+        ]],
+    )?;
+
     Ok(())
 }
