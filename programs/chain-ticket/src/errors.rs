@@ -11,8 +11,8 @@ pub enum ChainTicketError {
     #[msg("Unauthorised access")]
     Unauthorised,
 
-    #[msg("Not all tickets refunded")]
-    SupplyNotZero,
+    #[msg("Mint supply is not zero")]
+    NonZeroSupply,
 
     #[msg("Event has not ended")]
     EventNotEnded,

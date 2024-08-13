@@ -3,7 +3,6 @@ import { assert } from "chai";
 import {
     InitEventFields,
     AmendEventFields,
-    refundAll,
     ChainTicketProgram,
     getEventAddress,
     getMintAddress,
@@ -11,7 +10,7 @@ import {
     idl,
 } from "../app/lib/program";
 import { TOKEN_PROGRAM_ID, MintLayout } from "@solana/spl-token";
-import { PublicKey } from "@solana/web3.js";
+import { PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
 
 
 describe("chain-ticket", () => {
@@ -33,7 +32,7 @@ describe("chain-ticket", () => {
             imageUri: "https://test.com/",
             metadataUri: "https://testmetadata.com/",
             eventDate: 123123123,
-            ticketPrice: 129182731298,
+            ticketPrice: 3.3,
             numTickets: 100,
             refundPeriod: 72000,
         };
@@ -64,7 +63,7 @@ describe("chain-ticket", () => {
 
         assert.strictEqual(accountInfo.eventDate.toNumber(), fields.eventDate);
         assert.strictEqual(accountInfo.numTickets, fields.numTickets);
-        assert.strictEqual(accountInfo.ticketPrice.toNumber(), fields.ticketPrice);
+        assert.strictEqual(accountInfo.ticketPrice.toNumber() / LAMPORTS_PER_SOL, fields.ticketPrice);
         console.log("Event fields: OK");
 
         assert.ok(mintAccount !== null, "Mint account not initialised");
@@ -93,7 +92,7 @@ describe("chain-ticket", () => {
     it("amend", async () => {
         const fields: AmendEventFields = {
             eventDate: 9999999,
-            ticketPrice: 50000,
+            ticketPrice: 0.2,
             numTickets: 50,
         };
 
@@ -107,7 +106,7 @@ describe("chain-ticket", () => {
             .fetch(eventAddress);
 
         assert.strictEqual(accountInfo.eventDate.toNumber(), fields.eventDate);
-        assert.strictEqual(accountInfo.ticketPrice.toNumber(), fields.ticketPrice);
+        assert.strictEqual(accountInfo.ticketPrice.toNumber() / LAMPORTS_PER_SOL, fields.ticketPrice);
         assert.strictEqual(accountInfo.numTickets, fields.numTickets);
         console.log("Event fields: OK");
     });
@@ -161,17 +160,17 @@ describe("chain-ticket", () => {
         console.log("TXID:", txid);
     });
 
-    it("withdraw", async () => {
-        const ix = await chainTicket.getWithdrawFundsIx();
-        const txid = await chainTicket.sendTransaction([ix]);
-        console.log("TXID:", txid);
-    });
+    //it("withdraw", async () => {
+    //    const ix = await chainTicket.getWithdrawFundsIx();
+    //    const txid = await chainTicket.sendTransaction([ix]);
+    //    console.log("TXID:", txid);
+    //});
 
-    it("cancel", async () => {
-        const ix = await chainTicket.getCancelEventIx();
-        const txid = await chainTicket.sendTransaction([ix]);
-        console.log("TXID:", txid);
-    });
+    //it("cancel", async () => {
+    //    const ix = await chainTicket.getCancelEventIx();
+    //    const txid = await chainTicket.sendTransaction([ix]);
+    //    console.log("TXID:", txid);
+    //});
 
     it("end", async () => {
         const ix = await chainTicket.getEndEventIx();

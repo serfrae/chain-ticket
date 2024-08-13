@@ -1,8 +1,6 @@
 use {
     crate::{
-        constants::{
-            DEPOSIT_AMOUNT, EVENT_SEED, EVENT_STATE_SIZE, FEE, PLATFORM_OWNER, VAULT_SEED,
-        },
+        constants::{DEPOSIT_AMOUNT, EVENT_SEED, FEE, PLATFORM_OWNER, VAULT_SEED},
         errors::ChainTicketError,
         state::Event,
         utils::sol_to_lamports,
@@ -62,12 +60,14 @@ pub fn process_withdraw(ctx: Context<WithdrawFunds>) -> Result<()> {
         .checked_div(FEE * 100)
         .ok_or(ChainTicketError::Overflow)?;
 
+    msg!("Withdrawing...");
     // Deduct platform fee, proceeds and deposit amount
-    **ctx.accounts.vault.try_borrow_mut_lamports()? -= platform_fee + proceeds + deposit_amount;
+    **ctx.accounts.vault.try_borrow_mut_lamports()? -= proceeds + deposit_amount;
     // Transfer platform fee
     **ctx.accounts.platform_owner.try_borrow_mut_lamports()? += platform_fee;
     // Transfer proceeds + deposit amount
-    **ctx.accounts.authority.try_borrow_mut_lamports()? += proceeds + deposit_amount;
+    **ctx.accounts.authority.try_borrow_mut_lamports()? +=
+        (proceeds - platform_fee) + deposit_amount;
 
     Ok(())
 }

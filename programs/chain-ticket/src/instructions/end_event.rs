@@ -32,12 +32,11 @@ pub struct EndEvent<'info> {
         mut,
         seeds = [VAULT_SEED, event.key().as_ref()],
         bump,
-        address = event.authority @ ChainTicketError::InvalidVault,
+        address = event.vault @ ChainTicketError::InvalidVault,
     )]
     vault: UncheckedAccount<'info>,
     #[account(
         mut, 
-        close = authority,
         seeds = [MINT_SEED, event.key().as_ref()],
         bump,
         address = event.mint @ ChainTicketError::InvalidMint,
@@ -64,39 +63,10 @@ pub fn process_end(ctx: Context<EndEvent>) -> Result<()> {
     );
 
     // Check that funds have been withdrawn by comparing against the minimum rent amount
-    require_gte!(rent.minimum_balance(EVENT_STATE_SIZE), event_lamports);
+    require_gte!(rent.minimum_balance(8 + EVENT_STATE_SIZE), event_lamports);
 
     // Check mint supply
-    require_eq!(ctx.accounts.mint.supply, 0, ChainTicketError::SupplyNotZero);
-
-    // Close mint
-    ctx.accounts
-        .mint
-        .to_account_info()
-        .assign(&ctx.accounts.system_program.key());
-
-    // Zero data
-    ctx.accounts.mint.to_account_info().realloc(0, false)?;
-
-    let transfer_ix = anchor_lang::solana_program::system_instruction::transfer(
-        &ctx.accounts.mint.key(),
-        &ctx.accounts.authority.key(),
-        mint_lamports,
-    );
-
-    // Transfer lamports to authority
-    anchor_lang::solana_program::program::invoke_signed(
-        &transfer_ix,
-        &[
-            ctx.accounts.mint.to_account_info(),
-            ctx.accounts.authority.to_account_info(),
-        ],
-        &[&[
-            EVENT_SEED,
-            ctx.accounts.authority.key().as_ref(),
-            &[ctx.accounts.event.bump],
-        ]],
-    )?;
+    require_eq!(ctx.accounts.mint.supply, 0, ChainTicketError::NonZeroSupply);
 
     // Close vault 
     ctx.accounts
@@ -121,38 +91,38 @@ pub fn process_end(ctx: Context<EndEvent>) -> Result<()> {
             ctx.accounts.authority.to_account_info(),
         ],
         &[&[
-            EVENT_SEED,
-            ctx.accounts.authority.key().as_ref(),
-            &[ctx.accounts.event.bump],
+            VAULT_SEED,
+            ctx.accounts.event.key().as_ref(),
+            &[ctx.bumps.vault],
         ]],
     )?;
 
     // Close event
-    ctx.accounts
-        .event
-        .to_account_info()
-        .assign(&ctx.accounts.system_program.key());
+    //ctx.accounts
+    //    .event
+    //    .to_account_info()
+    //    .assign(&ctx.accounts.system_program.key());
 
-    ctx.accounts.event.to_account_info().realloc(0, false)?;
+    //ctx.accounts.event.to_account_info().realloc(0, false)?;
 
-    let transfer_ix = anchor_lang::solana_program::system_instruction::transfer(
-        &ctx.accounts.event.key(),
-        &ctx.accounts.authority.key(),
-        event_lamports,
-    );
+    //let transfer_ix = anchor_lang::solana_program::system_instruction::transfer(
+    //    &ctx.accounts.event.key(),
+    //    &ctx.accounts.authority.key(),
+    //    event_lamports,
+    //);
 
-    anchor_lang::solana_program::program::invoke_signed(
-        &transfer_ix,
-        &[
-            ctx.accounts.event.to_account_info(),
-            ctx.accounts.authority.to_account_info(),
-        ],
-        &[&[
-            EVENT_SEED,
-            ctx.accounts.authority.key().as_ref(),
-            &[ctx.accounts.event.bump],
-        ]],
-    )?;
+    //anchor_lang::solana_program::program::invoke_signed(
+    //    &transfer_ix,
+    //    &[
+    //        ctx.accounts.event.to_account_info(),
+    //        ctx.accounts.authority.to_account_info(),
+    //    ],
+    //    &[&[
+    //        EVENT_SEED,
+    //        ctx.accounts.authority.key().as_ref(),
+    //        &[ctx.accounts.event.bump],
+    //    ]],
+    //)?;
 
     Ok(())
 }

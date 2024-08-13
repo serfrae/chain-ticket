@@ -676,6 +676,32 @@ export type ChainTicket = {
           }
         },
         {
+          "name": "vault",
+          "docs": [
+            "in order to facilitate transfers from the vault",
+            "it must have no data and thus no discriminator."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "event"
+              }
+            ]
+          }
+        },
+        {
           "name": "mint",
           "writable": true,
           "pda": {
@@ -1184,10 +1210,6 @@ export type ChainTicket = {
               }
             ]
           }
-        },
-        {
-          "name": "systemProgram",
-          "address": "11111111111111111111111111111111"
         }
       ],
       "args": []
@@ -1226,8 +1248,8 @@ export type ChainTicket = {
     },
     {
       "code": 6003,
-      "name": "supplyNotZero",
-      "msg": "Not all tickets refunded"
+      "name": "nonZeroSupply",
+      "msg": "Mint supply is not zero"
     },
     {
       "code": 6004,

@@ -10,11 +10,13 @@ use {
         constants::{
             EVENT_SEED, VAULT_SEED, MINT_SEED, METADATA_SEED, EVENT_STATE_SIZE
         },
-        state::Event
+        errors::ChainTicketError,
+        state::Event,
     },
 };
 
 #[derive(Accounts)]
+//#[instruction(data: InitEventFields)]
 pub struct InitEvent<'info> {
 	#[account(mut)]
 	authority: Signer<'info>,
@@ -22,7 +24,7 @@ pub struct InitEvent<'info> {
 	#[account(
         init, 
         payer = authority, 
-        seeds = [EVENT_SEED, authority.key.as_ref()], 
+        seeds = [EVENT_SEED, authority.key.as_ref()],
         bump, 
         space = 8 + EVENT_STATE_SIZE
     )]
@@ -41,7 +43,7 @@ pub struct InitEvent<'info> {
     pub vault: UncheckedAccount<'info>,
 
     #[account(
-        init, 
+        init_if_needed, 
         payer = authority, 
         seeds = [MINT_SEED, event.key().as_ref()],
         bump,
@@ -83,6 +85,7 @@ pub struct InitEventFields {
 }
 
 pub fn process_init(ctx: Context<InitEvent>, data: InitEventFields) -> Result<()> {
+    require_eq!(ctx.accounts.mint.supply, 0, ChainTicketError::NonZeroSupply);
     ctx.accounts.event.bump = ctx.bumps.event;
     ctx.accounts.event.authority = ctx.accounts.authority.key();
     ctx.accounts.event.vault = ctx.accounts.vault.key();
@@ -92,7 +95,6 @@ pub fn process_init(ctx: Context<InitEvent>, data: InitEventFields) -> Result<()
     ctx.accounts.event.ticket_price = data.ticket_price;
     ctx.accounts.event.refund_period = data.refund_period;
     ctx.accounts.event.num_tickets = data.num_tickets;
-    msg!("{}", data.ticket_price);
 
     // Create token metadata (used for wallets to read name, symbol, and token image)
     create_metadata_accounts_v3(

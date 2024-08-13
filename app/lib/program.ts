@@ -6,7 +6,8 @@ import {
     Connection,
     TransactionInstruction,
     VersionedTransaction,
-    TransactionMessage
+    TransactionMessage,
+    LAMPORTS_PER_SOL,
 } from "@solana/web3.js";
 import { BN } from "bn.js";
 import { ChainTicket } from "../types/chain_ticket";
@@ -105,15 +106,15 @@ export type InitEventFields = {
     eventSymbol: string,
     imageUri: string,
     metadataUri: string,
-    eventDate: number,
-    ticketPrice: number,
+    eventDate: number, // As a unix timestamp
+    ticketPrice: number, // In sol, program will convert SOL -> Lamports
     numTickets: number,
-    refundPeriod: number,
+    refundPeriod: number, // As a unix timestamp
 }
 
 export type AmendEventFields = {
-    eventDate: number,
-    ticketPrice: number,
+    eventDate: number, // As a unix timestamp
+    ticketPrice: number, // In sol, a program will convert SOL -> Lamports
     numTickets: number,
 }
 
@@ -160,6 +161,7 @@ export class ChainTicketProgram {
         fields: InitEventFields,
     ): Promise<TransactionInstruction> {
         const authority = this.program.provider.publicKey;
+        const ticketPrice = fields.ticketPrice * LAMPORTS_PER_SOL;
 
         return this.program.methods.initEvent({
             eventName: fields.eventName,
@@ -167,7 +169,7 @@ export class ChainTicketProgram {
             imageUri: fields.imageUri,
             metadataUri: fields.metadataUri,
             eventDate: new BN(fields.eventDate),
-            ticketPrice: new BN(fields.ticketPrice),
+            ticketPrice: new BN(ticketPrice),
             numTickets: fields.numTickets,
             refundPeriod: new BN(fields.refundPeriod),
         })
@@ -180,10 +182,11 @@ export class ChainTicketProgram {
         fields: AmendEventFields,
     ): Promise<TransactionInstruction> {
         const authority = this.program.provider.publicKey;
+        const ticketPrice = fields.ticketPrice * LAMPORTS_PER_SOL;
 
         return this.program.methods.amendEvent({
             eventDate: new BN(fields.eventDate),
-            ticketPrice: new BN(fields.ticketPrice),
+            ticketPrice: new BN(ticketPrice),
             numTickets: fields.numTickets,
         })
             .accounts({
