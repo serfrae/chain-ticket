@@ -48,6 +48,7 @@ pub struct BuyTicket<'info> {
 /// to the buyer. The ticket's associated token account is then frozen and the event is set
 /// as delegate. Necessary for refunds and clean-ups.
 pub fn process_buy(ctx: Context<BuyTicket>) -> Result<()> {
+    require_eq!(ctx.accounts.event.allow_purchase, true, ChainTicketError::SaleNotStarted);
     require_gte!(
         ctx.accounts.event.num_tickets as u64, 
         ctx.accounts.mint.supply, 

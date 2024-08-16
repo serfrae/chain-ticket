@@ -393,7 +393,7 @@ export type ChainTicket = {
         {
           "name": "platformOwner",
           "writable": true,
-          "address": "EcmsHx8pZQqpHViyecmTNyzKpRrm3PGw86WWaK6dXmcs"
+          "address": "FAwHWq8AQzhw1vfCUEUnZuBZd5hKbR3EdybAtctX5ph"
         },
         {
           "name": "authority",
@@ -1157,7 +1157,7 @@ export type ChainTicket = {
         {
           "name": "platformOwner",
           "writable": true,
-          "address": "EcmsHx8pZQqpHViyecmTNyzKpRrm3PGw86WWaK6dXmcs"
+          "address": "FAwHWq8AQzhw1vfCUEUnZuBZd5hKbR3EdybAtctX5ph"
         },
         {
           "name": "authority",

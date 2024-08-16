@@ -19,3 +19,5 @@ pub const FEE: u64 = 1;
 
 /// SOL amount to deposit. Used as a guarantee should the event be cancelled
 pub const DEPOSIT_AMOUNT: u64 = 2;
+
+pub const SECONDS_PER_DAY: i64 = 86_400;

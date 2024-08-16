@@ -20,8 +20,6 @@ const MINT_SEED: string = "mint";
 const VAULT_SEED: string = "vault";
 const METADATA_SEED: string = "metadata";
 
-//const PLATFORM_OWNER: PublicKey = new PublicKey("EcmsHx8pZQqpHViyecmTNyzKpRrm3PGw86WWaK6dXmcs");
-
 export function getEventAddress(authority: PublicKey): [PublicKey, number] {
     return PublicKey.findProgramAddressSync(
         [
@@ -64,7 +62,7 @@ export function getMetadataAddress(mintAddress: PublicKey): [PublicKey, number] 
     );
 }
 
-export async function refundAll(connection: Connection, wallet: Wallet): Promise<[string[], string[]]> {
+export async function burnRefundAll(connection: Connection, wallet: Wallet, refund: boolean): Promise<[string[], string[]]> {
     const chainTicketProgram = new ChainTicketProgram(connection, wallet);
     const eventAddress = getEventAddress(wallet.publicKey)[0];
     const mintAddress = getMintAddress(eventAddress)[0];
@@ -89,16 +87,29 @@ export async function refundAll(connection: Connection, wallet: Wallet): Promise
 
     await Promise.all(accounts.map(async (buyer) => {
         try {
-            const ix = await chainTicketProgram.getRefundTicketIx(buyer);
+            let ix: TransactionInstruction;
+            if (refund) {
+                ix = await chainTicketProgram.getRefundTicketIx(buyer);
+            } else {
+                ix = await chainTicketProgram.getDelegateBurnIx(buyer);
+            }
             const txid = await chainTicketProgram.sendTransaction([ix]);
             txids.push(txid);
         } catch (error) {
-            console.error("Error processing refund for buyer:", buyer.toBase58(), error);
+            console.error("Error processing buyer:", buyer.toBase58(), error);
             failures.push(buyer.toBase58());
         }
     }));
 
     return [txids, failures];
+}
+
+export async function refundAll(connection: Connection, wallet: Wallet): Promise<[string[], string[]]> {
+    return await burnRefundAll(connection, wallet, true);
+}
+
+export async function burnAll(connection: Connection, wallet: Wallet): Promise<[string[], string[]]> {
+    return await burnRefundAll(connection, wallet, false);
 }
 
 export type InitEventFields = {
@@ -141,20 +152,37 @@ export class ChainTicketProgram {
     }
 
     async prepareTransaction(instructions: TransactionInstruction[]): Promise<VersionedTransaction> {
-        const recentBlockhash = await this.program
-            .provider
-            .connection
-            .getLatestBlockhash()
-            .then(r => r.blockhash);
-        console.log(recentBlockhash);
+        const maxRetries = 3;
+        const delay = 1000;
+        let retries = 0;
 
-        const messageV0 = new TransactionMessage({
-            payerKey: this.program.provider.publicKey,
-            recentBlockhash,
-            instructions,
-        }).compileToV0Message();
+        while (retries > maxRetries) {
+            try {
+                const recentBlockhash = await this.program
+                    .provider
+                    .connection
+                    .getLatestBlockhash()
+                    .then(r => r.blockhash);
 
-        return new VersionedTransaction(messageV0);
+                const messageV0 = new TransactionMessage({
+                    payerKey: this.program.provider.publicKey,
+                    recentBlockhash,
+                    instructions,
+                }).compileToV0Message();
+
+                return new VersionedTransaction(messageV0);
+            } catch (error) {
+                console.error("Could not get blockhash:", error)
+                retries++;
+                if (retries < maxRetries) {
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                } else {
+                    throw error;
+                }
+            }
+
+        }
+
     }
 
     getInitEventIx(

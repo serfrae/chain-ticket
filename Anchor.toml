@@ -11,7 +11,7 @@ chain_ticket = "4uXFs66eEYQ8u51coqaypjF4wtRL4LQTML2kA5zMXUy4"
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "Localnet"
+cluster = "devnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]

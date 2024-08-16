@@ -8,7 +8,7 @@ use {
     },
     crate::{
         constants::{
-            EVENT_SEED, VAULT_SEED, MINT_SEED, METADATA_SEED, EVENT_STATE_SIZE
+            EVENT_SEED, VAULT_SEED, MINT_SEED, METADATA_SEED, EVENT_STATE_SIZE, SECONDS_PER_DAY,
         },
         errors::ChainTicketError,
         state::Event,
@@ -86,6 +86,10 @@ pub struct InitEventFields {
 
 pub fn process_init(ctx: Context<InitEvent>, data: InitEventFields) -> Result<()> {
     require_eq!(ctx.accounts.mint.supply, 0, ChainTicketError::NonZeroSupply);
+    if data.refund_period < SECONDS_PER_DAY * 2 {
+        ctx.accounts.event.refund_period = SECONDS_PER_DAY * 2;
+    }
+    ctx.accounts.event.refund_period = data.refund_period;
     ctx.accounts.event.bump = ctx.bumps.event;
     ctx.accounts.event.authority = ctx.accounts.authority.key();
     ctx.accounts.event.vault = ctx.accounts.vault.key();
@@ -93,7 +97,6 @@ pub fn process_init(ctx: Context<InitEvent>, data: InitEventFields) -> Result<()
     ctx.accounts.event.allow_purchase = false;
     ctx.accounts.event.event_date = data.event_date;
     ctx.accounts.event.ticket_price = data.ticket_price;
-    ctx.accounts.event.refund_period = data.refund_period;
     ctx.accounts.event.num_tickets = data.num_tickets;
 
     // Create token metadata (used for wallets to read name, symbol, and token image)

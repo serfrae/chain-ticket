@@ -14,6 +14,9 @@ pub enum ChainTicketError {
     #[msg("Mint supply is not zero")]
     NonZeroSupply,
 
+    #[msg("Sale has not started")]
+    SaleNotStarted,
+
     #[msg("Event has not ended")]
     EventNotEnded,
 

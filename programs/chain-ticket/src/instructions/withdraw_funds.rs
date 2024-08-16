@@ -60,7 +60,6 @@ pub fn process_withdraw(ctx: Context<WithdrawFunds>) -> Result<()> {
         .checked_div(FEE * 100)
         .ok_or(ChainTicketError::Overflow)?;
 
-    msg!("Withdrawing...");
     // Deduct platform fee, proceeds and deposit amount
     **ctx.accounts.vault.try_borrow_mut_lamports()? -= proceeds + deposit_amount;
     // Transfer platform fee
