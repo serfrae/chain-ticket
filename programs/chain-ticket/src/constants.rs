@@ -12,7 +12,7 @@ pub const EVENT_STATE_SIZE: usize = 126;
 
 /// The public key of the platform owner
 pub const PLATFORM_OWNER: anchor_lang::solana_program::pubkey::Pubkey =
-    anchor_lang::pubkey!("FAwHWq8AQzhw1vfCUEUnZuBZd5hKbR3EdybAtctX5ph");
+    anchor_lang::pubkey!("AAFtJwAvDErpcDXVYotdqerUJHRkjNTGChMiAeuKMZVc");
 
 /// Platform fee (as a percentage)
 pub const FEE: u64 = 1;
